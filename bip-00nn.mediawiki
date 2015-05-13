@@ -1,0 +1,56 @@
+<pre>
+  BIP: NN
+  Title: Normalized TXID
+  Author: Christian Decker <decker.christian@gmail.com>
+  Status: Draft
+  Type: Standards Track
+  Created: 2015-05-13
+</pre>
+== Abstract ==
+
+This BIP describes the use of normalized transaction IDs (TXIDs) in order to eliminate transaction malleability, both in the third-party modification scenario as well as the participant modification scenario. The transaction ID is normalized by removing the signature scripts from transactions before computing its hash.
+
+== Motivation ==
+
+Transaction malleability has been known to be a problem for quite some time. Existing proposals, such as BIP 62 and BIP 66, partially address the problem, however part of the problem persists. BIP 62 specifically addresses the third-party modification scenario, in which someone picks a transaction in-flight, modifies it and re-injects it into the network, by locking down the specific format of a valid signature.
+
+Normalized transaction IDs eliminates transaction malleability with a simpler approach, that is easier to implement, and which also allows the use of transaction templates and guards against participant modification. Participant modification is the case in which one of the signing parties simply re-signs the transaction (which internally uses a random number) causing the legacy transaction ID to change. This is not addressed by any existing proposal. Transaction templates strongly simplifies higher level protocols and allows new uses. It allows an unsigned template transaction to be used as a basis for a sequence of transaction and only once the sequence matches the signer's expectations they provide the necessary signatures for the template to become valid, thus opting in to the sequence.
+
+== Specification ==
+
+In order to calculate the normalized transaction ID, the signature script is stripped from each input of the transaction. Stripping the signature script is achieved by setting the script's length to <code>0</code> and removing the <code>uchar[]</code> array from the TxIn.<ref>[[https://en.bitcoin.it/wiki/Protocol_Specification#tx|Protocol Specification: TX]]</ref>
+The normalized transaction ID is then computed as the SHA 256 hash of the stripped transaction, like in the original protocol. The normalized transaction ID is an alias which can also be used to reference a transaction.
+
+Besides tracking the unspent transaction outputs by legacy transaction ID, clients implementing this BIP look up transactions also by their legacy IDs. Clients validating transactions look up both the legacy as well as the normalized transaction ID. Should an unspent transaction output be spent using either the legacy ID or the normalized ID then also the other ID must be updated to reflect the change. This guarantees that outputs can still be spent only once. 
+
+A hard fork is required in order for transactions to be able to reference outputs using the normalized transaction IDs. Clients that do not implement this BIP will not be able to look up the previous transaction referenced by a normalized transaction ID and deem transactions using them invalid. The method used to perform the hard fork is out of scope.
+
+Before the hard fork, updated clients must use the legacy transaction IDs in order to create valid transactions recognized by clients that have not updated.
+After the hard fork has been completed the network supports look ups via normalized transactions. Transactions may then spend outputs using the normalized transaction IDs instead of the legacy IDs.
+
+== Rationale ==
+
+Normalized transaction IDs are provably non-malleable since no data is included in the hash whose integrity is not also proven in the signature, thus any modification causing the hash to change will also invalidate the signature.
+Normalized transactions are secure as they still use cryptographic hashes over all the semantic information of the transaction, i.e., the inputs, outputs and metadata, thus it is still computationally infeasible to cause a hash collision between transactions.
+
+There are a number of advantages to using normalized transaction IDs:
+
+* Like BIP 62 and BIP 66 it solves the problem of third-parties picking transactions out of the network, modifying them and reinjecting them, as was allegedly done to defraud MtGox<ref>[[http://www.tik.ee.ethz.ch/file/7e4a7f3f2991784786037285f4876f5c/malleability.pdf|Bitcoin Transaction Malleability and MtGox]]</ref>. Normalized IDs simplifies transaction state management for companies, as they now know which transaction hash to look for.
+* <code>m-of-n</code> multisig outputs are often used in higher level protocols <ref>[[http://lightning.network/lightning-network-paper-DRAFT-0.5.pdf|The Bitcoin Lightning Network]]</ref> in which several parties sign a transaction. Without normalized transaction IDs it is trivial for one party to re-sign a transaction, hence changing the legacy transaction hash and invalidating any transaction built on top of its outputs. Normalized transaction IDs would force the ID not to change, even if a party replaces its signature.
+* As in the previous case many higher level protocols build structures of transactions on top of multisig outputs that are not completely signed. This is currently not possible without one party holding a fully signed transaction and then calculating the legacy ID. It is desirable to be able to build successive transactions without one party collecting all signatures, and thus possibly lock in funds unilaterally. Normalized transaction IDs allow the use of transaction templates, i.e., completely unsigned transactions upon which further transactions can be built, and only once every party is assured the structure matches its expectations it signs the template, thus validating the template.
+
+The only occurence in which transactions can still be modified unilaterally is in the case <code>SIGHASH_NONE</code>, <code>SIGHASH_SINGLE</code> or <code>SIGHASH_ANYONECANPAY</code> is used. This however is not problematic since in these cases the creator of the transaction explicitly allows modification.
+
+=== Impact ===
+
+Since this change is a hardfork it has high impact on a large part of the Bitcoin ecosystem. Any node validating transactions is required to update in order to recognize the normalized transaction ID aliases when validating. The hard fork procedure must ensure that a large majority of miners as well as validating nodes update before enabling the use of normalized transaction IDs.
+
+SPV are only partially impacted wallets, if they receive transactions using normalized transaction IDs, since any transaction they create using legacy transaction IDs continue to be valid. For the same reason hardware wallets may continue to send transactions, receiving might need a software update. Miners must upgrade their node in order to validate transactions using normalized transaction IDs, however the mining hardware is not impacted since they never handle full blocks, instead working on the block header which contains only the merkle root computed externally.
+
+== See also ==
+
+* [[bip-0062.mediawiki|BIP 62: Dealing with malleability]]
+* [[bip-0066.mediawiki|BIP 66: Strict DER Signatures]]
+
+== References ==
+<references>
