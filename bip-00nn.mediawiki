@@ -19,9 +19,9 @@ Normalized transaction IDs eliminates transaction malleability with a simpler ap
 == Specification ==
 
 In order to calculate the normalized transaction ID, the signature script is stripped from each input of the transaction. Stripping the signature script is achieved by setting the script's length to <code>0</code> and removing the <code>uchar[]</code> array from the TxIn.<ref>[[https://en.bitcoin.it/wiki/Protocol_Specification#tx|Protocol Specification: TX]]</ref>
-The normalized transaction ID is then computed as the SHA 256 hash of the stripped transaction, like in the original protocol. The normalized transaction ID is an alias which can also be used to reference a transaction.
+The normalized transaction ID is then computed as the <code>SHA256</code> hash of the stripped transaction, like in the original protocol. The normalized transaction ID is an alias which can also be used to reference a transaction.
 
-Besides tracking the unspent transaction outputs by legacy transaction ID, clients implementing this BIP look up transactions also by their legacy IDs. Clients validating transactions look up both the legacy as well as the normalized transaction ID. Should an unspent transaction output be spent using either the legacy ID or the normalized ID then also the other ID must be updated to reflect the change. This guarantees that outputs can still be spent only once. 
+Besides tracking the unspent transaction outputs by legacy transaction ID, clients implementing this BIP look up transactions also by their normalized transaction ID. Clients validating transactions look up both the legacy as well as the normalized transaction ID. Should an unspent transaction output be spent using either the legacy ID or the normalized ID then also the other ID must be updated to reflect the change. This guarantees that outputs can still be spent only once. 
 
 A hard fork is required in order for transactions to be able to reference outputs using the normalized transaction IDs. Clients that do not implement this BIP will not be able to look up the previous transaction referenced by a normalized transaction ID and deem transactions using them invalid. The method used to perform the hard fork is out of scope.
 
